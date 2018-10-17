@@ -5,7 +5,7 @@ defmodule Chord.Node do
   Node
   """
 
-  @m 16
+  @m 5
 
   # Client
   def start_link(opts) do
@@ -29,18 +29,21 @@ defmodule Chord.Node do
     ip_addr =
       Integer.to_string(:rand.uniform(255)) <> "." <> Integer.to_string(:rand.uniform(255))
 
-    id = :crypto.hash(:sha, ip_addr) |> Base.encode16()
+    identifier = :crypto.hash(:sha, ip_addr) |> binary_part(0, 2) |> Base.encode16()
 
     node_register = Keyword.get(opts, :node_register)
+
+    finger_fixer = spawn(Chord.FingerFixer, :run, [identifier, self(), [], -1, @m, nil])
 
     {:ok,
      [
        ip_addr: ip_addr,
-       identifier: id,
+       identifier: identifier,
        successor: nil,
        predecessor: nil,
        node_register: node_register,
-       finger_table: []
+       finger_table: [],
+       finger_fixer: finger_fixer
      ]}
   end
 
@@ -54,6 +57,7 @@ defmodule Chord.Node do
     network_node = Chord.NodeRegister.get_node(state[:node_register], state[:identifier])
     successor = Chord.Node.find_successor(network_node, state[:identifier])
     state = Keyword.put(state, :successor, successor)
+
     {:noreply, state}
   end
 
