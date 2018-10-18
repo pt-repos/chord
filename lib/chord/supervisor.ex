@@ -7,10 +7,15 @@ defmodule Chord.Supervisor do
   end
 
   def start_nodes(supervisor, num_nodes, node_register) do
+    num_fingers = trunc(:math.log2(num_nodes))
+
     node_pids =
       for n <- 1..num_nodes do
         {:ok, node_pid} =
-          DynamicSupervisor.start_child(supervisor, {Chord.Node, [node_register: node_register]})
+          DynamicSupervisor.start_child(
+            supervisor,
+            {Chord.Node, [node_register: node_register, num_fingers: num_fingers]}
+          )
 
         if n != 1 do
           Chord.Node.join(node_pid)

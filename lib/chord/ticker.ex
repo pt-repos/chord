@@ -1,7 +1,7 @@
 defmodule Chord.Ticker do
   def start(recipient_pid, tick_interval, duration \\ :infinity) do
     ticker_pid = spawn(__MODULE__, :loop, [recipient_pid, tick_interval, 0])
-    send(self(), :send_tick)
+    send(ticker_pid, :send_tick)
     schedule_terminate(ticker_pid, duration)
     ticker_pid
   end
