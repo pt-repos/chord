@@ -2,7 +2,7 @@ defmodule Chord.Supervisor do
   use DynamicSupervisor
 
   def start_link(_opts) do
-    IO.puts("starting supervisor")
+    # IO.puts("starting supervisor")
     DynamicSupervisor.start_link(__MODULE__, name: Chord.Supervisor)
   end
 
@@ -14,10 +14,11 @@ defmodule Chord.Supervisor do
         {:ok, node_pid} =
           DynamicSupervisor.start_child(
             supervisor,
-            {Chord.Node, [node_register: node_register, num_fingers: num_fingers]}
+            {Chord.Node, [node_register: node_register, num_fingers: num_fingers, n: n]}
           )
 
         if n != 1 do
+          # Process.sleep(100)
           Chord.Node.join(node_pid)
         else
           Chord.Node.create(node_pid)
