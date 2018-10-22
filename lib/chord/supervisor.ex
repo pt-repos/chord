@@ -6,15 +6,22 @@ defmodule Chord.Supervisor do
     DynamicSupervisor.start_link(__MODULE__, name: Chord.Supervisor)
   end
 
-  def start_nodes(supervisor, num_nodes, node_register) do
-    num_fingers = trunc(:math.log2(num_nodes))
+  def start_nodes(supervisor, num_nodes, num_requests, monitor, node_register) do
+    # num_fingers = round(:math.log2(num_nodes))
+    num_fingers = :math.log2(num_nodes)
 
     node_pids =
       for n <- 1..num_nodes do
         {:ok, node_pid} =
           DynamicSupervisor.start_child(
             supervisor,
-            {Chord.Node, [node_register: node_register, num_fingers: num_fingers, n: n]}
+            {Chord.Node,
+             [
+               node_register: node_register,
+               monitor: monitor,
+               num_fingers: num_fingers,
+               num_requests: num_requests
+             ]}
           )
 
         if n != 1 do

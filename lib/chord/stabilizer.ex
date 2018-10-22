@@ -1,7 +1,7 @@
 defmodule Chord.Stabilizer do
   require Logger
 
-  @stabilize_interval 500
+  @stabilize_interval 1000
 
   def start(pid) do
     # IO.puts("starting ticker")
@@ -38,6 +38,7 @@ defmodule Chord.Stabilizer do
         run(node_identifier, node_pid, new_successor, ticker_pid)
 
       {:last_tick, _index} ->
+        # IO.puts("Stabilizer stopped")
         :ok
 
       {:start, successor} ->

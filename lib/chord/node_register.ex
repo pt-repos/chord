@@ -10,7 +10,7 @@ defmodule Chord.NodeRegister do
   end
 
   def get_node(register, from_id) do
-    GenServer.call(register, {:get, from_id})
+    GenServer.call(register, {:get, from_id}, :infinity)
   end
 
   def init(_opts) do
@@ -25,7 +25,14 @@ defmodule Chord.NodeRegister do
 
   def handle_call({:get, from_id}, {from_pid, _from_ref}, register) do
     {entry_pid, _entry_id} = Enum.random(register)
-    register = MapSet.put(register, {from_pid, from_id})
+
+    register =
+      if !is_nil(from_id) do
+        MapSet.put(register, {from_pid, from_id})
+      else
+        register
+      end
+
     {:reply, entry_pid, register}
   end
 end
