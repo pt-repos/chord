@@ -43,8 +43,8 @@ defmodule Chord.Node do
     GenServer.cast(pid, {:insert_data, key, data})
   end
 
-  def lookup(pid, key) do
-    GenServer.call(pid, {:lookup, key})
+  def get_data(pid, key) do
+    GenServer.call(pid, {:get_data, key})
   end
 
   def stop(pid) do
@@ -168,10 +168,10 @@ defmodule Chord.Node do
     {:noreply, state}
   end
 
-  def handle_call({:lookup, key}, _from, state) do
-    {node, hops} = find_successor(state[:successor][:pid], key)
+  def handle_call({:get_data, key}, _from, state) do
+    data = Map.get(state[:repo], key)
 
-    {:reply, {node, hops}, state}
+    {:reply, data, state}
   end
 
   def handle_call({:get_predecessor}, _from, state) do

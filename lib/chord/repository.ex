@@ -6,31 +6,44 @@ defmodule Chord.Repository do
   end
 
   def insert(pid, data) do
-    GenServer.cast(pid, {:insert, data})
+    GenServer.cast(pid, {:insert, pid, data})
   end
 
   def lookup(pid, data) do
     GenServer.call(pid, {:lookup, data})
   end
 
-  def init(opts) do
-    register = opts[:node_register]
-
-    {:ok, register}
-    # {:ok,
-    #  [
-    #    node_register: register
-    #  ]}
+  def init(_opts) do
+    {:ok}
   end
 
-  def handle_cast({:insert, data}, register) do
-    network_node = Chord.NodeRegister.get_node(register, nil)
-    key = :crypto.hash(:sha, data[:key])
-    successor = Chord.Node.find_successor(network_node, key)
-    Chord.Node.insert_data(successor[:pid], key, data[:value])
+  def handle_cast({:insert, pid, data}, :ok) do
+    key = :crypto.hash(:sha, data)
+    Chord.Node.find_successor(pid, key)
+
+    successor =
+      receive do
+        {:successor, successor, _hop_count} ->
+          successor
+      end
+
+    Chord.Node.insert_data(successor[:pid], key, data)
+
+    {:noreply, :ok, :ok}
   end
 
-  # def handle_call({:lookup, data}, register) do
-  #   network_node
-  # end
+  def handle_call({:lookup, pid, data}, _from, :ok) do
+    key = :crypto.hash(:sha, data)
+    Chord.Node.find_successor(pid, key)
+
+    {successor, hop_count} =
+      receive do
+        {:successor, successor, hop_count} ->
+          {successor, hop_count}
+      end
+
+    data = Chord.Node.get_data(successor[:pid], key)
+
+    {:reply, {data, successor, hop_count}, :ok}
+  end
 end
