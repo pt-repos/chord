@@ -8,7 +8,6 @@ defmodule Chord.Node do
 
   # Client
   def start_link(opts) do
-    # Logger.info("test #{inspect(opts)} \n test2")
     GenServer.start_link(__MODULE__, opts)
   end
 
@@ -36,15 +35,6 @@ defmodule Chord.Node do
     GenServer.call(pid, {:find_successor, id, hop_count})
   end
 
-  def find_successor_debug(pid, id, hop_count \\ 0) do
-    IO.puts("####### starting find_successor node: #{inspect(pid)}")
-    GenServer.call(pid, {:find_successor_debug, id, hop_count})
-  end
-
-  def find_successor_new(pid, id, hop_count \\ 0) do
-    GenServer.call(pid, {:find_successor_new, id, hop_count})
-  end
-
   def get_predecessor(pid) do
     GenServer.call(pid, {:get_predecessor})
   end
@@ -67,14 +57,12 @@ defmodule Chord.Node do
 
     m = trunc(opts[:num_fingers])
     num_bytes = trunc(Float.ceil(opts[:num_fingers] / 8))
-    # m = 160
     num_requests = opts[:num_requests]
     monitor = opts[:monitor]
 
     ip_addr = Randomizer.get_random_ip()
 
     identifier = :crypto.hash(:sha, ip_addr) |> binary_part(0, num_bytes)
-    # identifier = :crypto.hash(:sha, Integer.to_string(n)) |> binary_part(0, 1)
 
     finger_fixer =
       spawn(Chord.FingerFixer, :run, [identifier, self(), Map.new(), -1, m, num_bytes, nil])
@@ -91,8 +79,6 @@ defmodule Chord.Node do
         monitor,
         nil
       ])
-
-    # run(node_pid, node_register, total_requests, num_requests, total_hops, monitor, ticker_pid)
 
     {:ok,
      [
@@ -123,13 +109,11 @@ defmodule Chord.Node do
 
   def handle_cast({:join}, state) do
     network_node = Chord.NodeRegister.get_node(state[:node_register], state[:identifier])
-    # find_successor(network_node, state[:identifier])
-    find_successor_new(network_node, state[:identifier])
+    find_successor(network_node, state[:identifier])
 
     successor =
       receive do
         {:successor, successor, _hop_count} ->
-          # IO.puts("received successor")
           successor
       end
 
@@ -181,14 +165,12 @@ defmodule Chord.Node do
     send(state[:finger_fixer], {:stop, 0})
     send(state[:stabilizer], {:stop, 0})
 
-    # Process.exit(self(), 0)
-
     {:noreply, state}
   end
 
   def handle_call({:lookup, key}, _from, state) do
     {node, hops} = find_successor(state[:successor][:pid], key)
-    # get_data(successor[:pid], key)
+
     {:reply, {node, hops}, state}
   end
 
@@ -196,168 +178,19 @@ defmodule Chord.Node do
     {:reply, state[:predecessor], state}
   end
 
-  # TODO: handle mod
-  def handle_call({:find_successor, id, hop_count}, _from, state) do
-    # IO.puts("inside find_successor")
-    # IO.inspect(state)
-    # Logger.info("inside find successor
-    #   \nid:\t#{inspect(id)}
-    #   \nstate_id:\t#{inspect(state[:identifier])}
-    #   \nstate_succ_id:\t#{inspect(state[:successor][:identifier])}")
-    hop_count = hop_count + 1
-
-    {successor, hop_count} =
-      if(
-        Chord.IntervalChecker.check_half_open_interval(
-          id,
-          state[:identifier],
-          state[:successor][:identifier]
-        )
-      ) do
-        {state[:successor], hop_count}
-      else
-        # IO.puts("333333\nidentifier #{state[:identifier]}")
-        next_node =
-          closest_preceding_node(id, state[:m], state[:finger_table], state[:identifier])
-
-        # IO.puts("next_node")
-        # Logger.info("next_node:\t#{inspect(next_node)}")
-        # IO.inspect(state)
-        # IO.inspect(state[:finger_table])
-        # IO.puts("next_node")
-        # IO.inspect(next_node)
-
-        if next_node != self() do
-          find_successor(next_node, id, hop_count)
-        else
-          {state[:successor], hop_count}
-        end
-      end
-
-    # if id > state[:identifier] && id <= state[:successor][:identifier] do
-    #   state[:successor]
-    # else
-    #   # IO.puts("333333\nidentifier #{state[:identifier]}")
-
-    #   next_node = closest_preceding_node(id, state[:m], state[:finger_table], state[:identifier])
-
-    #   # IO.puts("next_node")
-    #   # Logger.info("next_node:\t#{inspect(next_node)}")
-    #   # IO.inspect(state)
-    #   # IO.inspect(state[:finger_table])
-    #   # IO.puts("next_node")
-    #   # IO.inspect(next_node)
-
-    #   if next_node != self() do
-    #     find_successor(next_node, id)
-    #   else
-    #     state[:successor]
-    #   end
-    # end
-
-    # Logger.info("successor: #{inspect(successor)}")
-
-    {:reply, {successor, hop_count}, state}
-  end
-
-  def handle_call({:find_successor_debug, id, hop_count}, {from_pid, _ref}, state) do
-    spawn(Chord.Node, :find_successor_logic, [from_pid, id, hop_count, state])
+  def handle_call({:find_successor, id, hop_count}, {from_pid, _ref}, state) do
+    spawn(Chord.Node, :find_successor, [from_pid, id, hop_count, state])
 
     {:reply, :ok, state}
   end
 
-  def handle_call({:find_successor_new, id, hop_count}, {from_pid, _ref}, state) do
-    spawn(Chord.Node, :find_successor_new_logic, [from_pid, id, hop_count, state])
-
-    {:reply, :ok, state}
-  end
-
-  def handle_info({:find_successor_debug, recipient_pid, id, hop_count}, state) do
-    spawn(Chord.Node, :find_successor_logic, [recipient_pid, id, hop_count, state])
+  def handle_info({:find_successor, recipient_pid, id, hop_count}, state) do
+    spawn(Chord.Node, :find_successor, [recipient_pid, id, hop_count, state])
 
     {:noreply, state}
   end
 
-  def handle_info({:find_successor_new, recipient_pid, id, hop_count}, state) do
-    spawn(Chord.Node, :find_successor_new_logic, [recipient_pid, id, hop_count, state])
-
-    {:noreply, state}
-  end
-
-  def handle_info({:successor, successor, _hop_count}, state) do
-    state = Keyword.put(state, :successor, successor)
-
-    {:noreply, state}
-  end
-
-  def find_successor_logic(recipient_pid, id, hop_count, state) do
-    # IO.puts("inside find_successor")
-    # IO.inspect(state)
-    # Logger.info("inside find successor
-    #   \nid:\t#{inspect(id)}
-    #   \nstate_id:\t#{inspect(state[:identifier])}
-    #   \nstate_succ_id:\t#{inspect(state[:successor][:identifier])}")
-    IO.puts("find_successor_debug #{inspect(state[:pid])}")
-    hop_count = hop_count + 1
-
-    # {successor, hop_count} =
-    if(
-      Chord.IntervalChecker.check_half_open_interval(
-        id,
-        state[:identifier],
-        state[:successor][:identifier]
-      )
-    ) do
-      IO.puts("IntervalChecker true, returning successor")
-      send(recipient_pid, {:successor, state[:successor], hop_count})
-      # {state[:successor], hop_count}
-    else
-      # IO.puts("333333\nidentifier #{state[:identifier]}")
-      next_node = closest_preceding_node(id, state[:m], state[:finger_table], state[:identifier])
-
-      # IO.puts("next_node")
-      # Logger.info("next_node:\t#{inspect(next_node)}")
-      # IO.inspect(state)
-      # IO.inspect(state[:finger_table])
-      # IO.puts("next_node")
-      # IO.inspect(next_node)
-
-      if next_node != self() do
-        IO.puts("recursive find_successor_debug, next_node: #{inspect(next_node)}")
-        # find_successor_debug(next_node, id, hop_count)
-        send(next_node, {:find_successor_debug, recipient_pid, id, hop_count})
-      else
-        IO.puts("next_node: #{inspect(next_node)} = self, returning successor")
-        send(recipient_pid, {:successor, state[:successor], hop_count})
-        # {state[:successor], hop_count}
-      end
-    end
-
-    # if id > state[:identifier] && id <= state[:successor][:identifier] do
-    #   state[:successor]
-    # else
-    #   # IO.puts("333333\nidentifier #{state[:identifier]}")
-
-    #   next_node = closest_preceding_node(id, state[:m], state[:finger_table], state[:identifier])
-
-    #   # IO.puts("next_node")
-    #   # Logger.info("next_node:\t#{inspect(next_node)}")
-    #   # IO.inspect(state)
-    #   # IO.inspect(state[:finger_table])
-    #   # IO.puts("next_node")
-    #   # IO.inspect(next_node)
-
-    #   if next_node != self() do
-    #     find_successor(next_node, id)
-    #   else
-    #     state[:successor]
-    #   end
-    # end
-
-    # Logger.info("successor: #{inspect(successor)}")
-  end
-
-  def find_successor_new_logic(recipient_pid, id, hop_count, state) do
+  def find_successor(recipient_pid, id, hop_count, state) do
     hop_count = hop_count + 1
 
     if(
@@ -372,7 +205,7 @@ defmodule Chord.Node do
       next_node = closest_preceding_node(id, state[:m], state[:finger_table], state[:identifier])
 
       if next_node != self() do
-        send(next_node, {:find_successor_new, recipient_pid, id, hop_count})
+        send(next_node, {:find_successor, recipient_pid, id, hop_count})
       else
         send(recipient_pid, {:successor, state[:successor], hop_count})
       end
@@ -380,23 +213,12 @@ defmodule Chord.Node do
   end
 
   defp closest_preceding_node(id, m, finger_table, node_identifier) do
-    # Logger.info("inside cpn")
-
     if Enum.empty?(finger_table) do
-      # IO.puts("#### finger_table empty")
       self()
     else
-      # IO.puts("#### finger_table NOT empty #{node_identifier}")
       key = map_size(finger_table) - 1
       entry = Map.get(finger_table, key)
-      # Logger.info("finger_table #{inspect(finger_table)}")
-      # Logger.info("entry: #{inspect(entry)}")
-      # entry = Enum.at(finger_table, key)
 
-      # CONDITION: if (entry_identifier E (node_identifier, id) )
-
-      # Can do with only the second condition? as entries are +2^m successors of node in the ring.
-      # if entry[:identifier] > node_identifier && entry[:identifier] < id do
       if !is_nil(entry) &&
            Chord.IntervalChecker.check_open_interval(entry[:identifier], node_identifier, id) do
         entry[:pid]
@@ -407,16 +229,9 @@ defmodule Chord.Node do
   end
 
   defp closest_preceding_node(id, m, finger_table, node_identifier, key) do
-    # Logger.info("inside cpn")
-
     if key >= 0 do
-      # IO.puts("#### key >= 0; #{key}")
       entry = Map.get(finger_table, key)
 
-      # entry = Enum.at(finger_table, key)
-
-      # Can do with only the second condition? as entries are +2^m successors of node in the ring.
-      # if entry[:identifier] > node_identifier && entry[:identifier] < id do
       if !is_nil(entry) &&
            Chord.IntervalChecker.check_open_interval(entry[:identifier], node_identifier, id) do
         entry[:pid]
@@ -424,8 +239,6 @@ defmodule Chord.Node do
         closest_preceding_node(id, m, finger_table, node_identifier, key - 1)
       end
     else
-      # IO.puts("self()")
-      # IO.inspect(self())
       self()
     end
   end

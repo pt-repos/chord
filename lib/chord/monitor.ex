@@ -30,10 +30,10 @@ defmodule Chord.Monitor do
 
     IO.puts("Creating node and forming network")
 
-    {:ok, _node_pids} =
+    {:ok, node_pids} =
       Chord.Supervisor.start_nodes(supervisor, num_nodes, num_requests, self(), register)
 
-    # IO.puts("#{inspect(node_pids)}")
+    IO.puts("Initiating requests")
 
     {:reply, :ok, {num_nodes, num_requests, total_hops, counter, from_pid}}
   end
@@ -42,23 +42,16 @@ defmodule Chord.Monitor do
     total_hops = total_hops + hops
     counter = counter + 1
 
-    if Enum.random(1..1000) < 5 do
-      IO.puts("counter: #{counter}")
-    end
-
-    # IO.puts("counter: #{counter},\thops: #{hops}")
-
     if counter == num_nodes do
       avg_hops = total_hops / num_nodes
       send(report_pid, {:avg_hops, avg_hops})
     end
 
-    ProgressBar.render(counter, num_nodes)
+    if counter == 1 do
+      IO.puts("Responses received")
+    end
 
-    # if counter == 5 do
-    #   avg_hops = total_hops / 5
-    #   send(report_pid, {:avg_hops, avg_hops})
-    # end
+    ProgressBar.render(counter, num_nodes)
 
     {:noreply, {num_nodes, num_requests, total_hops, counter, report_pid}}
   end

@@ -4,7 +4,6 @@ defmodule Chord.Stabilizer do
   @stabilize_interval 5
 
   def start(pid) do
-    # IO.puts("starting ticker")
     Chord.Ticker.start(pid, @stabilize_interval)
   end
 
@@ -38,7 +37,6 @@ defmodule Chord.Stabilizer do
         run(node_identifier, node_pid, new_successor, ticker_pid)
 
       {:last_tick, _index} ->
-        # IO.puts("Stabilizer stopped")
         :ok
 
       {:start, successor} ->

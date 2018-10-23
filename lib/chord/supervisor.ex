@@ -2,12 +2,10 @@ defmodule Chord.Supervisor do
   use DynamicSupervisor
 
   def start_link(_opts) do
-    # IO.puts("starting supervisor")
     DynamicSupervisor.start_link(__MODULE__, name: Chord.Supervisor)
   end
 
   def start_nodes(supervisor, num_nodes, num_requests, monitor, node_register) do
-    # num_fingers = round(:math.log2(num_nodes))
     num_fingers = :math.log2(num_nodes)
 
     node_pids =
