@@ -9,7 +9,7 @@ defmodule Proj3 do
 	def loop() do
 		receive do
 			{:avg_hops, avg_hops} ->
-				IO.puts("Average numbe of hops = #{avg_hops}")
+				IO.puts("Average number of hops = #{avg_hops}")
 		end
 	end
 end
@@ -23,15 +23,6 @@ end
 num_nodes = String.to_integer(num_nodes)
 num_requests = String.to_integer(num_requests)
 
-Proj3.run(num_nodes, num_requests)
+{time, :ok} = :timer.tc(Proj3, :run, [num_nodes, num_requests])
 
-# {:ok, supervisor} = Chord.Supervisor.start_link([])
-# {:ok, register} = Chord.NodeRegister.start_link([])
-# {:ok, node_pids} = Chord.Supervisor.start_nodes(supervisor, 250, register)
-
-# {:ok, repo} = Chord.Repository.start_link([node_register: register])
-# Chord.Repository.insert(repo, data)
-
-# Enum.each(node_pids, fn node_pid-> 
-# 	IO.inspect :sys.get_state(node_pid)
-# end)
+IO.puts("\nexecution time: #{inspect(time/1000/1000)} sec")
