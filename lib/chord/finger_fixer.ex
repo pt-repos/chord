@@ -1,7 +1,7 @@
 defmodule Chord.FingerFixer do
   require Logger
 
-  @fix_interval 1500
+  @fix_interval 100
 
   def start(pid) do
     # IO.puts("starting ticker")
@@ -25,13 +25,6 @@ defmodule Chord.FingerFixer do
             next
           end
 
-        # max_hash = :crypto.hash(:sha, Integer.to_string(round(:math.pow(2, m))))
-
-        # {:ok, identifier} = Base.decode16(node_identifier)
-        # node_identifier = Base.decode16(node_identifier)
-        # IO.puts("node identifier:")
-        # IO.inspect(node_identifier)
-
         next_id =
           :binary.encode_unsigned(
             rem(
@@ -42,16 +35,15 @@ defmodule Chord.FingerFixer do
             )
           )
 
-        # IO.puts("next_id: #{inspect(next_id)}")
-        # IO.puts("next_id")
-        # IO.inspect(next_id)
-        # IO.inspect(Base.encode16(next_id))
-        # IO.puts("m: #{m}, node identifier: #{node_identifier} \nnext_id #{next_id}")
-        # IO.puts("FingerFixer")
-        {finger, _hops} = Chord.Node.find_successor(node_pid, next_id)
-        # IO.puts("next: #{inspect(next)}\n#{inspect(finger)}")
-        # IO.puts("finger")
-        # IO.inspect(finger)
+        Chord.Node.find_successor_new(node_pid, next_id)
+
+        finger =
+          receive do
+            {:successor, finger, _hops} ->
+              # IO.puts("received finger")
+              finger
+          end
+
         finger_table = Map.put(finger_table, next, finger)
         Chord.Node.update_finger_table(node_pid, finger_table)
 
@@ -60,15 +52,6 @@ defmodule Chord.FingerFixer do
         #     inspect(next)
         #   } \n#{inspect(finger)} \nfinger_table \n#{inspect(finger_table)}"
         # )
-
-        # Logger.info("finger_table\n#{inspect(finger_table)}")
-        # finger_table = List.insert_at(finger_table, next, finger)
-
-        # if Enum.random(1..10) <= 2 do
-        #   IO.puts("11111111finger table")
-        #   IO.inspect(node_pid)
-        #   IO.inspect(finger_table)
-        # end
 
         run(node_identifier, node_pid, finger_table, next, m, num_bytes, ticker_pid)
 

@@ -33,12 +33,16 @@ defmodule Chord.Node do
   end
 
   def find_successor(pid, id, hop_count \\ 0) do
-    GenServer.call(pid, {:find_successor, id, hop_count}, :infinity)
+    GenServer.call(pid, {:find_successor, id, hop_count})
   end
 
   def find_successor_debug(pid, id, hop_count \\ 0) do
     IO.puts("####### starting find_successor node: #{inspect(pid)}")
-    GenServer.call(pid, {:find_successor_debug, id, hop_count}, :infinity)
+    GenServer.call(pid, {:find_successor_debug, id, hop_count})
+  end
+
+  def find_successor_new(pid, id, hop_count \\ 0) do
+    GenServer.call(pid, {:find_successor_new, id, hop_count})
   end
 
   def get_predecessor(pid) do
@@ -50,7 +54,7 @@ defmodule Chord.Node do
   end
 
   def lookup(pid, key) do
-    GenServer.call(pid, {:lookup, key}, :infinity)
+    GenServer.call(pid, {:lookup, key})
   end
 
   def stop(pid) do
@@ -119,7 +123,16 @@ defmodule Chord.Node do
 
   def handle_cast({:join}, state) do
     network_node = Chord.NodeRegister.get_node(state[:node_register], state[:identifier])
-    {successor, _hops} = find_successor(network_node, state[:identifier])
+    # find_successor(network_node, state[:identifier])
+    find_successor_new(network_node, state[:identifier])
+
+    successor =
+      receive do
+        {:successor, successor, _hop_count} ->
+          # IO.puts("received successor")
+          successor
+      end
+
     state = Keyword.put(state, :successor, successor)
     send(state[:finger_fixer], {:start})
     send(state[:stabilizer], {:start, state[:successor]})
@@ -253,13 +266,31 @@ defmodule Chord.Node do
     {:reply, :ok, state}
   end
 
+  def handle_call({:find_successor_new, id, hop_count}, {from_pid, _ref}, state) do
+    spawn(Chord.Node, :find_successor_new_logic, [from_pid, id, hop_count, state])
+
+    {:reply, :ok, state}
+  end
+
   def handle_info({:find_successor_debug, recipient_pid, id, hop_count}, state) do
     spawn(Chord.Node, :find_successor_logic, [recipient_pid, id, hop_count, state])
 
     {:noreply, state}
   end
 
-  defp find_successor_logic(recipient_pid, id, hop_count, state) do
+  def handle_info({:find_successor_new, recipient_pid, id, hop_count}, state) do
+    spawn(Chord.Node, :find_successor_new_logic, [recipient_pid, id, hop_count, state])
+
+    {:noreply, state}
+  end
+
+  def handle_info({:successor, successor, _hop_count}, state) do
+    state = Keyword.put(state, :successor, successor)
+
+    {:noreply, state}
+  end
+
+  def find_successor_logic(recipient_pid, id, hop_count, state) do
     # IO.puts("inside find_successor")
     # IO.inspect(state)
     # Logger.info("inside find successor
@@ -293,8 +324,8 @@ defmodule Chord.Node do
 
       if next_node != self() do
         IO.puts("recursive find_successor_debug, next_node: #{inspect(next_node)}")
-        find_successor_debug(next_node, id, hop_count)
-        send(next_node, {:find_successor_debug, recipient_pid, id, hop_count, state})
+        # find_successor_debug(next_node, id, hop_count)
+        send(next_node, {:find_successor_debug, recipient_pid, id, hop_count})
       else
         IO.puts("next_node: #{inspect(next_node)} = self, returning successor")
         send(recipient_pid, {:successor, state[:successor], hop_count})
@@ -324,6 +355,28 @@ defmodule Chord.Node do
     # end
 
     # Logger.info("successor: #{inspect(successor)}")
+  end
+
+  def find_successor_new_logic(recipient_pid, id, hop_count, state) do
+    hop_count = hop_count + 1
+
+    if(
+      Chord.IntervalChecker.check_half_open_interval(
+        id,
+        state[:identifier],
+        state[:successor][:identifier]
+      )
+    ) do
+      send(recipient_pid, {:successor, state[:successor], hop_count})
+    else
+      next_node = closest_preceding_node(id, state[:m], state[:finger_table], state[:identifier])
+
+      if next_node != self() do
+        send(next_node, {:find_successor_new, recipient_pid, id, hop_count})
+      else
+        send(recipient_pid, {:successor, state[:successor], hop_count})
+      end
+    end
   end
 
   defp closest_preceding_node(id, m, finger_table, node_identifier) do

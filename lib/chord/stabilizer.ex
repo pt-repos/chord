@@ -1,7 +1,7 @@
 defmodule Chord.Stabilizer do
   require Logger
 
-  @stabilize_interval 1000
+  @stabilize_interval 5
 
   def start(pid) do
     # IO.puts("starting ticker")

@@ -25,11 +25,13 @@ defmodule Chord.Supervisor do
           )
 
         if n != 1 do
-          # Process.sleep(100)
+          Process.sleep(10)
           Chord.Node.join(node_pid)
         else
           Chord.Node.create(node_pid)
         end
+
+        ProgressBar.render(n, num_nodes)
 
         node_pid
       end
