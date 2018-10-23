@@ -4,7 +4,8 @@
 A simulator for Chord p2p lookup algorithm writted in elixir.
 
 #### Team members
-1. Pulkit Tripathi
+1. Pulkit Tripathi 
+   UFID: 9751-9461
 
 #### Prerequisites
 * [Elixir](https://elixir-lang.org/install.html)
