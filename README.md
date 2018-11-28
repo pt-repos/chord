@@ -1,7 +1,7 @@
 # Project 3
 ### Chord Simulation
 
-A simulator for Chord p2p lookup algorithm writted in elixir.
+A simulator for Chord p2p lookup algorithm written in elixir.
 
 #### Team members
 1. Pulkit Tripathi 
